@@ -1,0 +1,84 @@
+```{r}
+data <- read.csv("Flight_delay.csv")
+head(data)
+```
+
+```{r}
+colnames(data)
+```
+
+
+Turn ArrTime and DepTime into minutes
+```{r}
+
+data$ArrTimeMinutes <- (data$ArrTime%/%100)*60 + data$ArrTime%%100
+
+data$DepTimeMinutes <- (data$DepTime%/%100)*60 + data$DepTime%%100
+
+dependent <- c("DepTimeMinutes", "Distance", "DayOfWeek", "TaxiIn", "AirTime")
+
+```
+
+
+Check types of dependent variables
+```{r}
+sapply(data[,dependent], class)
+```
+
+
+Find correlation between dependent features and ArrTime
+```{r}
+corr_mat = cor(data$ArrTimeMinutes, data[c("Distance", "DepTimeMinutes", "TaxiIn", "AirTime")], method=("pearson"))
+corr_mat
+
+#most of the values have magnitute <0.1 meaning that there is not much correlation
+```
+
+
+Statistical Tests
+```{r}
+data$TotalDelay <- data$LateAircraftDelay + data$NASDelay + data$WeatherDelay + data$CarrierDelay
+
+#Use anova to see if there is a statistically significant difference on total delay for days of week
+
+data$DayOfWeek <- as.factor(data$DayOfWeek) #for handling categorical data
+anova_test = aov(TotalDelay ~ DayOfWeek, data = data)
+summary(anova_test)
+
+#since the p value is smaller than 0.05, we can confidently say that there is a statistically significant difference in the total delay for days of week
+```
+
+Chi Squared
+```{r}
+DelayPerDay <- aggregate(data$TotalDelay, by=list(DayOfWeek = data$DayOfWeek), FUN=sum)
+
+chisq.test(DelayPerDay$x)
+```
+
+
+Random Forest for Regression
+```{r}
+#install.packages("randomForest")
+library(randomForest)
+
+model <- randomForest(ArrTimeMinutes ~ DepTimeMinutes + Distance + DayOfWeek + TaxiIn + AirTime, data=data, ntree=1000, sampsize=10000)
+
+y_pred <- predict(model, data[dependent])
+
+summary(model)
+```
+
+```{r}
+print(model)
+```
+
+
+```{r}
+#install.packages("Metrics")
+library(Metrics)
+
+print(paste0("RMSE: ", rmse(data$ArrTimeMinutes, y_pred) ))
+```
+
+
+
